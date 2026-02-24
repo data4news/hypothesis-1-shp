@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Two-Sample t-Test: A Visual Explainer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://unpkg.com/scrollama@3.2.0/build/scrollama.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body, {delimiters:[{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}]})"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Georgia', serif;
+    background: #fafaf8;
+    color: #2d2d2d;
+  }
+
+  /* ── Hero ── */
+  #hero {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    color: #fff;
+  }
+  #hero .label {
+    font-size: 0.85rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #a8b2d8;
+    margin-bottom: 1rem;
+  }
+  #hero h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.15;
+    max-width: 700px;
+  }
+  #hero h1 em {
+    font-style: italic;
+    color: #7ecac3;
+  }
+  #hero p {
+    margin-top: 1.5rem;
+    font-size: 1.1rem;
+    color: #c0cad8;
+    max-width: 520px;
+    line-height: 1.7;
+  }
+  .scroll-hint {
+    margin-top: 3rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #7ecac3;
+    animation: bounce 2s infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+  }
+
+  /* ── Scrolly layout ── */
+  #scrolly {
+    position: relative;
+    display: flex;
+    gap: 0;
+  }
+
+  /* Sticky chart panel */
+  #chart-panel {
+    position: sticky;
+    top: 0;
+    width: 55%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    background: #fafaf8;
+  }
+
+  #chart-panel svg {
+    width: 100%;
+    max-width: 500px;
+    height: auto;
+  }
+
+  #chart-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #444;
+    margin-bottom: 0.5rem;
+    text-align: center;
+    letter-spacing: 0.03em;
+    min-height: 1.4em;
+    transition: opacity 0.4s;
+  }
+
+  /* Steps panel */
+  #steps {
+    width: 45%;
+    padding: 0 3rem 0 2rem;
+  }
+
+  .step {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    padding: 4rem 0;
+  }
+
+  .step-content {
+    background: #fff;
+    border-left: 4px solid #e0e0e0;
+    border-radius: 0 12px 12px 0;
+    padding: 1.8rem 2rem;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+    transition: border-color 0.3s;
+  }
+
+  .step.is-active .step-content {
+    border-color: #7ecac3;
+  }
+
+  .step-number {
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 0.5rem;
+  }
+
+  .step-content h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 0.8rem;
+    line-height: 1.3;
+  }
+
+  .step-content p {
+    font-size: 0.97rem;
+    line-height: 1.8;
+    color: #444;
+    margin-bottom: 0.8rem;
+  }
+
+  .step-content p:last-child { margin-bottom: 0; }
+
+  .highlight {
+    background: #e8f8f6;
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    font-weight: 600;
+    color: #1a6b64;
+  }
+
+  .highlight-red {
+    background: #fde8e8;
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    font-weight: 600;
+    color: #a03030;
+  }
+
+  .formula-box {
+    background: #f0f0f0;
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin: 0.8rem 0;
+    font-family: 'Courier New', monospace;
+    font-size: 1.05rem;
+    color: #222;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    margin: 0.8rem 0;
+  }
+
+  .stat-cell {
+    background: #f5f5f5;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    text-align: center;
+  }
+
+  .stat-cell .val {
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .stat-cell .lbl {
+    font-size: 0.75rem;
+    color: #777;
+    margin-top: 0.2rem;
+  }
+
+  .auto-color { color: #e07070; }
+  .manual-color { color: #5db8b0; }
+
+  /* ── Outro ── */
+  #outro {
+    padding: 6rem 2rem;
+    max-width: 680px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  #outro h2 {
+    font-size: 2rem;
+    color: #1a1a2e;
+    margin-bottom: 1rem;
+  }
+  #outro p {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: #555;
+    margin-bottom: 1rem;
+  }
+  #outro .verdict {
+    display: inline-block;
+    margin-top: 1rem;
+    background: #1a1a2e;
+    color: #7ecac3;
+    border-radius: 12px;
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+
+  /* ── SVG styles ── */
+  .axis-label { font-size: 12px; fill: #777; }
+  .grid-line { stroke: #e8e8e8; stroke-width: 1; }
+  .dot { opacity: 0.82; }
+  .mean-line { stroke-width: 2.5; stroke-dasharray: none; }
+  .mean-label { font-size: 11px; font-weight: 600; }
+  .bracket-line { stroke: #333; stroke-width: 1.5; fill: none; }
+  .diff-label { font-size: 12px; fill: #333; font-weight: 600; }
+  .sd-rect { opacity: 0.15; }
+  .annotation { font-size: 11.5px; fill: #444; }
+
+  @media (max-width: 768px) {
+    #scrolly { flex-direction: column; }
+    #chart-panel { position: relative; width: 100%; height: 55vw; min-height: 280px; }
+    #steps { width: 100%; padding: 0 1.2rem; }
+    .step { min-height: 60vh; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════ HERO -->
+<section id="hero">
+  <div class="label">Statistical Explainer · mtcars dataset</div>
+  <h1>Do manual cars get <em>better mileage</em> than automatics?</h1>
+  <p>A visual walkthrough of the two-sample t-test — from raw data to p-value — using 32 classic cars.</p>
+  <div class="scroll-hint">↓ scroll to explore</div>
+</section>
+
+<!-- ══════════════════════════════════════════ SCROLLY -->
+<section id="scrolly">
+
+  <!-- Sticky chart -->
+  <div id="chart-panel">
+    <div id="chart-title">MPG by Transmission Type</div>
+    <svg id="main-chart" viewBox="0 0 480 420" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <!-- Steps -->
+  <div id="steps">
+
+    <div class="step" data-step="0">
+      <div class="step-content">
+        <div class="step-number">Step 1 of 7</div>
+        <h2>The Question</h2>
+        <p>The <strong>mtcars</strong> dataset contains 32 cars from the 1974 <em>Motor Trend</em> magazine. Each car has a transmission type: <span class="highlight-red">automatic (am = 0)</span> or <span class="highlight">manual (am = 1)</span>.</p>
+        <p>We want to know: is the difference in fuel efficiency between these two groups <strong>real</strong>, or just random noise?</p>
+        <p>To answer that, we'll use a <strong>two-sample t-test</strong>.</p>
+      </div>
+    </div>
+
+    <div class="step" data-step="1">
+      <div class="step-content">
+        <div class="step-number">Step 2 of 7</div>
+        <h2>See the raw data</h2>
+        <p>Each dot is one car. Already you can see a pattern — the <span class="highlight">manual</span> cars cluster higher on the MPG axis than the <span class="highlight-red">automatic</span> cars.</p>
+        <p>But clusters can be deceiving. The overlap is real too. We need a rigorous way to measure whether that gap is meaningful.</p>
+      </div>
+    </div>
+
+    <div class="step" data-step="2">
+      <div class="step-content">
+        <div class="step-number">Step 3 of 7</div>
+        <h2>Calculate the group means</h2>
+        <p>The simplest summary: the average MPG for each group.</p>
+        <div class="stat-grid">
+          <div class="stat-cell">
+            <div class="val auto-color">17.1</div>
+            <div class="lbl">Automatic mean MPG</div>
+          </div>
+          <div class="stat-cell">
+            <div class="val manual-color">24.4</div>
+            <div class="lbl">Manual mean MPG</div>
+          </div>
+        </div>
+        <p>The raw difference is <strong>7.2 MPG</strong>. That sounds big — but is it bigger than we'd expect by chance alone?</p>
+      </div>
+    </div>
+
+    <div class="step" data-step="3">
+      <div class="step-content">
+        <div class="step-number">Step 4 of 7</div>
+        <h2>Account for spread</h2>
+        <p>The means differ, but both groups also have <strong>spread</strong> (variability). A large difference matters more when the data is tightly clustered; it matters less when data is all over the place.</p>
+        <p>The shaded bands show ±1 standard deviation around each mean:</p>
+        <div class="stat-grid">
+          <div class="stat-cell">
+            <div class="val auto-color">±3.8</div>
+            <div class="lbl">Automatic SD</div>
+          </div>
+          <div class="stat-cell">
+            <div class="val manual-color">±6.2</div>
+            <div class="lbl">Manual SD</div>
+          </div>
+        </div>
+        <p>The t-test uses both the <em>difference in means</em> and the <em>spread</em> to give us a single number: the <strong>t-statistic</strong>.</p>
+      </div>
+    </div>
+
+    <div class="step" data-step="4">
+      <div class="step-content">
+        <div class="step-number">Step 5 of 7</div>
+        <h2>Compute the t-statistic</h2>
+        <p>The formula compares how large the <strong>signal</strong> (difference in means) is relative to the <strong>noise</strong> (pooled uncertainty from both groups):</p>
+        <div class="formula-box">
+          \[ t = \frac{\bar{x}_1 - \bar{x}_2}{SE} \qquad SE = \sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}} \]
+        </div>
+        <p>Plugging in our numbers:</p>
+        <div class="formula-box">
+          t = (17.1 − 24.4) / 1.93
+          <br>
+          t = <strong>−3.77</strong>
+        </div>
+        <p>The negative sign just means automatic &lt; manual. What matters is the magnitude: <strong>3.77</strong>.</p>
+      </div>
+    </div>
+
+    <div class="step" data-step="5">
+      <div class="step-content">
+        <div class="step-number">Step 6 of 7</div>
+        <h2>The null hypothesis world</h2>
+        <p>Imagine a world where transmission type has <strong>no effect</strong> on MPG — the null hypothesis (H₀). In that world, t-statistics from random samples follow the t-distribution shown in the chart.</p>
+        <p>Our t = −3.77 lands far out in the tail. The <strong>red shaded area</strong> shows all values as extreme or more extreme — that area is the <strong>p-value</strong>.</p>
+        <p>Degrees of freedom = n₁ + n₂ − 2 = <strong>30</strong></p>
+      </div>
+    </div>
+
+    <div class="step" data-step="6">
+      <div class="step-content">
+        <div class="step-number">Step 7 of 7</div>
+        <h2>Read the p-value</h2>
+        <p>The two-sided p-value for our test is <strong>p = 0.0014</strong>.</p>
+        <p>This means: if the null hypothesis were true, we'd see a t-statistic this extreme (or more) only <strong>0.14%</strong> of the time by chance.</p>
+        <p>Since p &lt; 0.05, we <strong>reject H₀</strong>. The evidence is strong: manual transmission cars genuinely differ in fuel efficiency.</p>
+        <p>The 95% confidence interval for the difference: <span class="highlight">[ −11.3, −3.2 ] MPG</span>.</p>
+      </div>
+    </div>
+
+  </div><!-- /steps -->
+</section>
+
+<!-- ══════════════════════════════════════════ OUTRO -->
+<section id="outro">
+  <h2>The verdict</h2>
+  <p>Using Welch's two-sample t-test on the mtcars data, we find strong evidence (p = 0.0014, t = −3.77, df ≈ 18.3) that manual transmission cars have higher fuel efficiency than automatics.</p>
+  <p>Of course, correlation isn't causation — the two groups differ in weight, cylinders, and horsepower too. But within this dataset, transmission type is a reliable signal.</p>
+  <div class="verdict">Manual > Automatic<br>by ~7.2 MPG · p = 0.0014</div>
+</section>
+
+
+<script>
+// ══════════════════════════════════════
+// DATA
+// ══════════════════════════════════════
+const raw = [
+  {name:"Mazda RX4",mpg:21.0,am:1},{name:"Mazda RX4 Wag",mpg:21.0,am:1},
+  {name:"Datsun 710",mpg:22.8,am:1},{name:"Hornet 4 Drive",mpg:21.4,am:0},
+  {name:"Hornet Sportabout",mpg:18.7,am:0},{name:"Valiant",mpg:18.1,am:0},
+  {name:"Duster 360",mpg:14.3,am:0},{name:"Merc 240D",mpg:24.4,am:0},
+  {name:"Merc 230",mpg:22.8,am:0},{name:"Merc 280",mpg:19.2,am:0},
+  {name:"Merc 280C",mpg:17.8,am:0},{name:"Merc 450SE",mpg:16.4,am:0},
+  {name:"Merc 450SL",mpg:17.3,am:0},{name:"Merc 450SLC",mpg:15.2,am:0},
+  {name:"Cadillac Fleetwood",mpg:10.4,am:0},{name:"Lincoln Continental",mpg:10.4,am:0},
+  {name:"Chrysler Imperial",mpg:14.7,am:0},{name:"Fiat 128",mpg:32.4,am:1},
+  {name:"Honda Civic",mpg:30.4,am:1},{name:"Toyota Corolla",mpg:33.9,am:1},
+  {name:"Toyota Corona",mpg:21.5,am:0},{name:"Dodge Challenger",mpg:15.5,am:0},
+  {name:"AMC Javelin",mpg:15.2,am:0},{name:"Camaro Z28",mpg:13.3,am:0},
+  {name:"Pontiac Firebird",mpg:19.2,am:0},{name:"Fiat X1-9",mpg:27.3,am:1},
+  {name:"Porsche 914-2",mpg:26.0,am:1},{name:"Lotus Europa",mpg:30.4,am:1},
+  {name:"Ford Pantera L",mpg:15.8,am:1},{name:"Ferrari Dino",mpg:19.7,am:1},
+  {name:"Maserati Bora",mpg:15.0,am:1},{name:"Volvo 142E",mpg:21.4,am:1}
+];
+
+const auto = raw.filter(d => d.am === 0);
+const manual = raw.filter(d => d.am === 1);
+
+function mean(arr) { return arr.reduce((s,v)=>s+v,0)/arr.length; }
+function variance(arr) {
+  const m = mean(arr);
+  return arr.reduce((s,v)=>s+(v-m)**2,0)/(arr.length-1);
+}
+function sd(arr) { return Math.sqrt(variance(arr)); }
+
+const autoMpg = auto.map(d=>d.mpg);
+const manMpg  = manual.map(d=>d.mpg);
+const meanAuto = mean(autoMpg);   // ~17.147
+const meanMan  = mean(manMpg);    // ~24.392
+const sdAuto   = sd(autoMpg);     // ~3.83
+const sdMan    = sd(manMpg);      // ~6.17
+const n0 = auto.length, n1 = manual.length;
+
+// Welch t
+const se = Math.sqrt(variance(autoMpg)/n0 + variance(manMpg)/n1);
+const tStat = (meanAuto - meanMan) / se; // ~ -3.77
+
+// ══════════════════════════════════════
+// CHART SETUP
+// ══════════════════════════════════════
+const svg = d3.select("#main-chart");
+const W = 480, H = 420;
+const margin = {top:30, right:40, bottom:50, left:55};
+const innerW = W - margin.left - margin.right;
+const innerH = H - margin.top - margin.bottom;
+
+const g = svg.append("g").attr("transform",`translate(${margin.left},${margin.top})`);
+
+// Scales for dot plot
+const yScale = d3.scaleLinear().domain([8, 37]).range([innerH, 0]);
+const xBand  = d3.scaleBand().domain(["Automatic","Manual"]).range([0, innerW]).padding(0.3);
+const xPos   = {"Automatic": xBand("Automatic") + xBand.bandwidth()/2,
+                "Manual":    xBand("Manual")    + xBand.bandwidth()/2};
+
+const COLOR = {"Automatic":"#e07070","Manual":"#5db8b0"};
+
+// Jitter seed (deterministic)
+const jitter = (i, range) => (((i * 7 + 3) % 17) / 17 - 0.5) * range;
+
+// Grid lines
+const yTicks = [10,15,20,25,30,35];
+yTicks.forEach(v => {
+  g.append("line")
+    .attr("class","grid-line")
+    .attr("x1",0).attr("x2",innerW)
+    .attr("y1",yScale(v)).attr("y2",yScale(v));
+  g.append("text")
+    .attr("class","axis-label")
+    .attr("x",-8).attr("y",yScale(v))
+    .attr("dy","0.35em").attr("text-anchor","end")
+    .text(v);
+});
+
+// Y-axis label
+g.append("text")
+  .attr("class","axis-label")
+  .attr("transform","rotate(-90)")
+  .attr("x",-innerH/2).attr("y",-42)
+  .attr("text-anchor","middle")
+  .text("Miles per Gallon (mpg)");
+
+// X-axis labels
+["Automatic","Manual"].forEach(lbl => {
+  g.append("text")
+    .attr("class","axis-label")
+    .attr("x", xPos[lbl])
+    .attr("y", innerH + 30)
+    .attr("text-anchor","middle")
+    .attr("font-size","13px")
+    .attr("font-weight","600")
+    .attr("fill", COLOR[lbl])
+    .text(lbl);
+});
+
+// ── Layers (we'll show/hide them) ──
+const layerDots  = g.append("g").attr("id","layer-dots");
+const layerMeans = g.append("g").attr("id","layer-means").style("opacity",0);
+const layerSD    = g.append("g").attr("id","layer-sd").style("opacity",0);
+const layerBracket = g.append("g").attr("id","layer-bracket").style("opacity",0);
+const layerTDist = g.append("g").attr("id","layer-tdist").style("opacity",0);
+
+// ── Dots ──
+const dotsData = [
+  ...auto.map((d,i)=>({...d, group:"Automatic", xi:i})),
+  ...manual.map((d,i)=>({...d, group:"Manual",   xi:i}))
+];
+
+layerDots.selectAll("circle.dot")
+  .data(dotsData)
+  .join("circle")
+  .attr("class","dot")
+  .attr("cx", d => xPos[d.group] + jitter(d.xi, xBand.bandwidth()*0.5))
+  .attr("cy", d => yScale(d.mpg))
+  .attr("r",  6)
+  .attr("fill", d => COLOR[d.group])
+  .attr("stroke","#fff")
+  .attr("stroke-width",1.5);
+
+// ── Mean lines ──
+[{g:"Automatic",m:meanAuto},{g:"Manual",m:meanMan}].forEach(({g:grp,m}) => {
+  const bw = xBand.bandwidth();
+  const cx = xPos[grp];
+  layerMeans.append("line")
+    .attr("class","mean-line")
+    .attr("x1", cx - bw*0.45).attr("x2", cx + bw*0.45)
+    .attr("y1", yScale(m)).attr("y2", yScale(m))
+    .attr("stroke", COLOR[grp]);
+  layerMeans.append("text")
+    .attr("class","mean-label")
+    .attr("x", cx + bw*0.5 + 5)
+    .attr("y", yScale(m))
+    .attr("dy","0.35em")
+    .attr("fill", COLOR[grp])
+    .text(`x̄ = ${m.toFixed(1)}`);
+});
+
+// ── SD bands ──
+[{g:"Automatic",m:meanAuto,s:sdAuto},{g:"Manual",m:meanMan,s:sdMan}].forEach(({g:grp,m,s}) => {
+  const bw = xBand.bandwidth();
+  const cx = xPos[grp];
+  layerSD.append("rect")
+    .attr("class","sd-rect")
+    .attr("x", cx - bw*0.45)
+    .attr("y", yScale(m+s))
+    .attr("width", bw*0.9)
+    .attr("height", yScale(m-s) - yScale(m+s))
+    .attr("fill", COLOR[grp]);
+  // SD label
+  layerSD.append("text")
+    .attr("class","annotation")
+    .attr("x", cx)
+    .attr("y", yScale(m+s) - 5)
+    .attr("text-anchor","middle")
+    .attr("fill", COLOR[grp])
+    .attr("font-size","10px")
+    .text(`+1 SD`);
+  layerSD.append("text")
+    .attr("class","annotation")
+    .attr("x", cx)
+    .attr("y", yScale(m-s) + 13)
+    .attr("text-anchor","middle")
+    .attr("fill", COLOR[grp])
+    .attr("font-size","10px")
+    .text(`-1 SD`);
+});
+
+// ── Bracket showing difference ──
+const cx0 = xPos["Automatic"], cx1 = xPos["Manual"];
+const midX = (cx0 + cx1) / 2 + 10;
+layerBracket.append("line")
+  .attr("class","bracket-line")
+  .attr("x1", midX).attr("x2", midX)
+  .attr("y1", yScale(meanAuto)).attr("y2", yScale(meanMan))
+  .attr("stroke","#555").attr("stroke-dasharray","4,3");
+layerBracket.append("line").attr("class","bracket-line")
+  .attr("x1",midX-6).attr("x2",midX+6)
+  .attr("y1",yScale(meanAuto)).attr("y2",yScale(meanAuto)).attr("stroke","#555");
+layerBracket.append("line").attr("class","bracket-line")
+  .attr("x1",midX-6).attr("x2",midX+6)
+  .attr("y1",yScale(meanMan)).attr("y2",yScale(meanMan)).attr("stroke","#555");
+layerBracket.append("text")
+  .attr("class","diff-label")
+  .attr("x", midX + 10)
+  .attr("y", yScale((meanAuto+meanMan)/2))
+  .attr("dy","0.35em")
+  .attr("fill","#333")
+  .attr("font-size","12px")
+  .text("Δ = 7.2 MPG");
+
+// ══════════════════════════════════════
+// T-DISTRIBUTION CHART (step 5 & 6)
+// ══════════════════════════════════════
+// Normal approx for t-dist (df=30) — using jStat-like formula inline
+function tPDF(x, df) {
+  // Gamma ratio approx via log-gamma
+  function lgamma(z) {
+    const c = [76.18009172947146,-86.50532032941677,24.01409824083091,
+                -1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+    let y = z, x2 = z, tmp = x2+5.5;
+    tmp -= (x2+0.5)*Math.log(tmp);
+    let ser = 1.000000000190015;
+    for(let j=0;j<6;j++){ser+=c[j]/++y;}
+    return -tmp+Math.log(2.5066282746310005*ser/x2);
+  }
+  const lnorm = lgamma((df+1)/2) - 0.5*Math.log(df*Math.PI) - lgamma(df/2)
+              - (df+1)/2 * Math.log(1 + x*x/df);
+  return Math.exp(lnorm);
+}
+
+// Build t-dist visualization inside layerTDist
+// We'll replace the dots/axis when this appears; instead just overlay
+const tdW = innerW, tdH = innerH;
+const tRange = d3.range(-5, 5.05, 0.05);
+const df = 30;
+const tData = tRange.map(x => ({x, y: tPDF(x, df)}));
+const maxY = d3.max(tData, d=>d.y);
+
+const txScale = d3.scaleLinear().domain([-5,5]).range([0, tdW]);
+const tyScale = d3.scaleLinear().domain([0, maxY*1.1]).range([tdH, 0]);
+
+const tLine = d3.line().x(d=>txScale(d.x)).y(d=>tyScale(d.y)).curve(d3.curveBasis);
+
+// Shaded tail areas (|t| >= |tStat|)
+const tCrit = Math.abs(tStat); // 3.77
+const tailDataLeft  = tData.filter(d=>d.x <= -tCrit);
+const tailDataRight = tData.filter(d=>d.x >= tCrit);
+
+function buildTailPath(pts, side) {
+  if(!pts.length) return "";
+  const areaGen = d3.area().x(d=>txScale(d.x)).y0(tdH).y1(d=>tyScale(d.y)).curve(d3.curveBasis);
+  return areaGen(pts);
+}
+
+layerTDist.append("rect")
+  .attr("width", tdW).attr("height", tdH)
+  .attr("fill","#fafaf8");
+
+// Grid
+[0,-1,-2,-3,-4,1,2,3,4].forEach(v=>{
+  layerTDist.append("line")
+    .attr("class","grid-line")
+    .attr("x1",txScale(v)).attr("x2",txScale(v))
+    .attr("y1",0).attr("y2",tdH);
+  layerTDist.append("text")
+    .attr("class","axis-label")
+    .attr("x",txScale(v)).attr("y",tdH+18)
+    .attr("text-anchor","middle").text(v);
+});
+layerTDist.append("text")
+  .attr("class","axis-label")
+  .attr("x",tdW/2).attr("y",tdH+38)
+  .attr("text-anchor","middle").text("t-statistic");
+
+// Tail shading
+layerTDist.append("path")
+  .attr("d", buildTailPath(tailDataLeft))
+  .attr("fill","#e07070").attr("opacity",0.35);
+layerTDist.append("path")
+  .attr("d", buildTailPath(tailDataRight))
+  .attr("fill","#e07070").attr("opacity",0.35);
+
+// Curve
+layerTDist.append("path")
+  .datum(tData)
+  .attr("d", tLine)
+  .attr("fill","none")
+  .attr("stroke","#1a1a2e")
+  .attr("stroke-width",2);
+
+// Observed t marker
+const obsX = txScale(tStat);
+layerTDist.append("line")
+  .attr("x1",obsX).attr("x2",obsX)
+  .attr("y1",0).attr("y2",tdH)
+  .attr("stroke","#e07070").attr("stroke-width",2).attr("stroke-dasharray","5,3");
+layerTDist.append("text")
+  .attr("x",obsX-6).attr("y",tyScale(maxY*0.55))
+  .attr("text-anchor","end")
+  .attr("fill","#c03030").attr("font-size","11px").attr("font-weight","600")
+  .text("t = −3.77");
+
+// P-value annotation
+layerTDist.append("text")
+  .attr("x",tdW*0.72).attr("y",tdH*0.3)
+  .attr("fill","#c03030").attr("font-size","11px").attr("font-weight","600")
+  .text("p = 0.0014");
+layerTDist.append("line")
+  .attr("x1",txScale(4.2)).attr("x2",txScale(4.2))
+  .attr("y1",0).attr("y2",tdH)
+  .attr("stroke","#e07070").attr("stroke-width",2).attr("stroke-dasharray","5,3");
+layerTDist.append("text")
+  .attr("x",txScale(4.2)+6).attr("y",tyScale(maxY*0.55))
+  .attr("text-anchor","start")
+  .attr("fill","#c03030").attr("font-size","11px").attr("font-weight","600")
+  .text("t = +3.77");
+
+// H0 label
+layerTDist.append("text")
+  .attr("x",tdW/2).attr("y",tyScale(maxY*0.92))
+  .attr("text-anchor","middle").attr("fill","#888").attr("font-size","11px")
+  .text("t-distribution under H₀ (df = 30)");
+
+// ══════════════════════════════════════
+// SCROLLAMA
+// ══════════════════════════════════════
+const chartTitle = document.getElementById("chart-title");
+
+function transition(step) {
+  const dotOpacity   = [1,1,1,1,1,0,0][step] ?? 1;
+  const meanOpacity  = [0,0,1,1,1,0,0][step] ?? 0;
+  const sdOpacity    = [0,0,0,1,1,0,0][step] ?? 0;
+  const brackOpacity = [0,0,0,0,1,0,0][step] ?? 0;
+  const tdistOpacity = [0,0,0,0,0,1,1][step] ?? 0;
+
+  const titles = [
+    "MPG by Transmission Type",
+    "MPG by Transmission Type",
+    "Group Means",
+    "Spread Within Each Group",
+    "Signal vs. Noise",
+    "The Null Hypothesis World",
+    "p-value: How Extreme is Our t?"
+  ];
+  chartTitle.textContent = titles[step] ?? "";
+
+  layerDots.transition().duration(500).style("opacity", dotOpacity);
+  layerMeans.transition().duration(500).style("opacity", meanOpacity);
+  layerSD.transition().duration(500).style("opacity", sdOpacity);
+  layerBracket.transition().duration(500).style("opacity", brackOpacity);
+  layerTDist.transition().duration(500).style("opacity", tdistOpacity);
+}
+
+const scroller = scrollama();
+scroller.setup({
+  step: ".step",
+  offset: 0.55,
+  debug: false
+})
+.onStepEnter(({index}) => {
+  d3.selectAll(".step").classed("is-active", false);
+  d3.select(`.step[data-step="${index}"]`).classed("is-active", true);
+  transition(index);
+})
+.onStepExit(({index, direction}) => {
+  // keep last step styling when scrolling back from outro
+});
+
+// Initial state
+transition(0);
+d3.select('.step[data-step="0"]').classed("is-active", true);
+</script>
+</body>
+</html>
